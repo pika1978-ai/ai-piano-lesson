@@ -1,0 +1,78 @@
+<!doctype html><html lang="ja"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover"><title>AIピアノレッスン v0.6.4</title><style>:root{color-scheme:dark;font-family:-apple-system,BlinkMacSystemFont,'Helvetica Neue',sans-serif}*{box-sizing:border-box}body{margin:0;background:#101827;color:#f7f9fc}main{max-width:850px;margin:auto;padding:22px 16px 55px}h1{font-size:25px;margin:5px 0}p{line-height:1.6}.muted{color:#b9c5d5}.panel{background:#1b2940;border:1px solid #35465e;border-radius:18px;padding:20px;margin-top:16px}.status{display:flex;align-items:center;gap:10px;font-size:15px}.dot{width:12px;height:12px;background:#f6a84d;border-radius:50%;flex-shrink:0}.dot.ok{background:#59d8a0}.dot.bad{background:#ff7777}.big{font-size:clamp(36px,8vw,65px);font-weight:800;letter-spacing:.06em;text-align:center;margin:24px 0 10px}.sequence{display:flex;justify-content:center;gap:10px;flex-wrap:wrap}.note{min-width:68px;padding:14px;border-radius:12px;background:#293c58;text-align:center;font-size:28px;font-weight:bold;border:2px solid transparent}.note.done{background:#176f55}.note.active{border-color:#82d6ff;background:#2d5276}.note.wrong{border-color:#ff7777}.btnrow{display:flex;gap:10px;flex-wrap:wrap;margin-top:14px}button{border:0;border-radius:11px;background:#4c9ce6;color:white;padding:14px 18px;font-size:16px;font-weight:700;cursor:pointer}button.secondary{background:#344761}button:disabled{opacity:.5}.center{text-align:center}.small{font-size:13px}.feedback{min-height:40px;font-size:20px;font-weight:700;text-align:center;margin:17px 0}.feedback.good{color:#65e4b2}.feedback.error{color:#ffb4b4}.progress{height:9px;background:#344761;border-radius:10px;overflow:hidden}.fill{height:100%;background:#65b6ed;transition:width .2s}.stats{display:flex;justify-content:space-between;gap:10px;flex-wrap:wrap}.stats strong{font-size:21px}details{margin-top:18px;color:#c4d0df}code{color:#b5e0ff}a{color:#9bd5ff}</style></head><body><main><h1>🎹 AIピアノレッスン <span class="muted">v0.6.4</span></h1><p class="muted">P-225のUSB MIDI入力で、課題を自動判定します。</p><section class="panel"><div class="status"><span id="dot" class="dot"></span><span id="midiStatus">MIDI接続を確認中…</span></div><p id="device" class="muted small">対応ブラウザーで開いてください。</p><details open><summary>接続診断（確認用）</summary><pre id="diag" style="white-space:pre-wrap;overflow-wrap:anywhere;font-size:12px;color:#c6d7ed">診断開始前</pre></details><div class="btnrow"><button id="connect">MIDI接続を確認</button><button id="test" class="secondary">画面操作デモ</button></div></section><section class="panel"><div class="stats"><span>課題 <strong id="lessonNumber">1 / 5</strong></span><span>正解 <strong id="correctCount">0</strong></span><span>間違い <strong id="wrongCount">0</strong></span></div><div class="progress" style="margin-top:16px"><div class="fill" id="progress" style="width:0%"></div></div><div class="btnrow" style="justify-content:center;align-items:center"><label for="octave">練習する音域：</label><select id="octave" style="font-size:16px;padding:10px;background:#293c58;color:white;border:1px solid #65758a;border-radius:8px"><option value="0">中央のド（C4）から</option><option value="12">1オクターブ高いド（C5）から</option><option value="-12">1オクターブ低いド（C3）から</option></select></div><p id="lessonTitle" class="center muted">基礎：上がる音</p><div class="sequence" id="notes"></div><p id="hint" class="center muted">右手で順番に弾いてください</p><p id="feedback" class="feedback" aria-live="polite">最初の音を弾いてください</p><p id="lastNote" class="center small muted">最後のMIDI入力：なし</p><div class="btnrow"><button id="retry" class="secondary">この課題をやり直す</button><button id="skip" class="secondary">次の課題へ</button><button id="reset" class="secondary">記録をリセット</button></div></section><details><summary>使い方と注意事項</summary><p>Web MIDI Browserでこのページを開き、接続を許可してください。USB接続したP-225が「P-Series」などの名前で表示されれば準備完了です。鍵盤を押した際のNote Onを判定します。ペダルや一部のシステムメッセージは無視します。</p><p>「画面操作デモ」はMIDIなしでも試せる操作確認用です。実際の練習では使わず、P-225の鍵盤を弾いてください。Web MIDI APIは安全な接続（HTTPS等）が必要になる場合があります。端末内保存はブラウザーのデータ削除で消えることがあります。</p><p>この版は固定課題の動作試験です。画面の音名はド4などの音域を含みます。中央のドはド4（MIDI番号60）、高いドはド5（番号72）です。ChatGPT API・リズム採点・指使い判定・曲の楽譜表示は未実装です。</p></details></main><script>
+'use strict';
+const lessons=[{title:'基礎：上がる音',notes:[60,62,64],hint:'右手で ド → レ → ミ を順番に'},{title:'基礎：下がる音',notes:[64,62,60],hint:'右手で ミ → レ → ド を順番に'},{title:'基礎：音を飛ばす',notes:[60,64,67],hint:'右手で ド → ミ → ソ を順番に'},{title:'基礎：左手の音',notes:[50,47,52],hint:'左手で レ → シ → ミ を順番に'},{title:'曲につながる練習',notes:[62,66,69],hint:'レ → ファ♯ → ラ を順番に（曲そのもののメロディーではありません）'}];
+const names=['ド','ド♯','レ','レ♯','ミ','ファ','ファ♯','ソ','ソ♯','ラ','ラ♯','シ'];
+const $=id=>document.getElementById(id);const key='ai_piano_v06_progress';let lesson=0,pos=0,correct=0,wrong=0,done=false,timer=null,midiAccess=null,inputs=[],octave=0,lastEvent=null;
+try{const s=JSON.parse(localStorage.getItem(key)||'null');if(s&&Number.isInteger(s.lesson)&&s.lesson>=0&&s.lesson<lessons.length){lesson=s.lesson;correct=s.correct||0;wrong=s.wrong||0;octave=[-12,0,12].includes(s.octave)?s.octave:0;}}catch(e){}
+function save(){try{localStorage.setItem(key,JSON.stringify({lesson,correct,wrong,octave}))}catch(e){}}
+function pitch(n){return names[((n%12)+12)%12]}function pitchFull(n){return pitch(n)+(Math.floor(n/12)-1)}
+function feedback(t,cls=''){const el=$('feedback');el.textContent=t;el.className='feedback '+cls}
+function render(){const l=lessons[lesson];$('lessonNumber').textContent=`${lesson+1} / ${lessons.length}`;$('lessonTitle').textContent=l.title;$('hint').textContent=l.hint;$('correctCount').textContent=correct;$('wrongCount').textContent=wrong;$('progress').style.width=((lesson+(pos/l.notes.length))/lessons.length*100)+'%';$('octave').value=String(octave);$('notes').replaceChildren();l.notes.forEach((n,i)=>{const e=document.createElement('span');e.className='note '+(i<pos?'done':i===pos&&!done?'active':'');e.textContent=pitchFull(n+octave);$('notes').append(e)});save()}
+function nextLesson(){clearTimeout(timer);done=false;pos=0;lesson=(lesson+1)%lessons.length;render();feedback(lesson===0?'全課題完了！ 最初の課題に戻りました。':'次の課題です。最初の音を弾いてください','good')}
+function noteOn(n,v=64){$('lastNote').textContent=`最後のMIDI入力：${pitchFull(n)}（番号 ${n}、強さ ${v}）`;if(done)return;const l=lessons[lesson];if(n===l.notes[pos]+octave){correct++;pos++;render();if(pos>=l.notes.length){done=true;feedback('🎉 課題クリア！ 自動で次へ進みます','good');timer=setTimeout(nextLesson,1200)}else feedback('正解！ 次の音へ','good')}else{wrong++;render();feedback(`違う音です。${pitchFull(l.notes[pos]+octave)} を弾いてください`,'error')}}
+function setStatus(t,ok=false){$('midiStatus').textContent=t;$('dot').className='dot '+(ok?'ok':'bad')}
+function diag(t){const el=$('diag');el.textContent+=(el.textContent==='診断開始前'?'':'\n')+t;}
+function describe(e){try{return 'name='+String(e&&e.name)+' / message='+String(e&&e.message)+' / text='+String(e)+' / JSON='+JSON.stringify(e)}catch(_){return String(e)}}
+function midiMessage(ev){
+ try{
+  const raw=ev&&ev.data;
+  if(!raw || raw.length<3)return;
+  const status=Number(raw[0]),note=Number(raw[1]),velocity=Number(raw[2]);
+  if(!Number.isFinite(status)||!Number.isFinite(note)||!Number.isFinite(velocity))return;
+  if((status&0xf0)!==0x90 || velocity===0)return;
+  const now=performance.now();
+  if(lastEvent&&lastEvent.note===note&&lastEvent.velocity===velocity&&now-lastEvent.at<80)return;
+  lastEvent={note,velocity,at:now};
+  noteOn(note,velocity);
+ }catch(e){diag('鍵盤入力エラー: '+describe(e))}
+}
+function collectInputs(v){
+ const found=[];if(!v)return found;
+ function add(x){if(x&&typeof x==='object'&&!found.includes(x))found.push(x)}
+ // iPad Web MIDI Browser uses a nonstandard map-like object: values() may not be iterable.
+ try{if(typeof v.forEach==='function')v.forEach((value)=>add(value))}catch(e){diag('forEach取得エラー: '+describe(e))}
+ try{if(typeof v.length==='number')for(let j=0;j<v.length;j++)add(v[j])}catch(e){diag('配列取得エラー: '+describe(e))}
+ try{if(typeof v.size==='number'&&typeof v.get==='function')for(let j=0;j<v.size;j++)add(v.get(j))}catch(e){diag('get取得エラー: '+describe(e))}
+ try{if(typeof v.values==='function'){
+   const iterator=v.values();
+   if(iterator&&typeof iterator.next==='function'){
+     for(let j=0;j<64;j++){const step=iterator.next();if(!step||step.done)break;add(step.value)}
+   }
+ }}catch(e){diag('values取得エラー: '+describe(e))}
+ return found;
+}
+function attach(m){
+ midiAccess=m;
+ diag('MIDIアクセス取得成功');
+ function refresh(){
+  const found=collectInputs(m.inputs);
+  inputs=found.filter(p=>p&&typeof p.name==='string'&&p.name.toLowerCase().includes('p-series'));
+  if(!inputs.length)inputs=found;
+  diag('入力機器数: '+inputs.length);
+  inputs.forEach((p,k)=>{
+   diag('入力 '+(k+1)+': '+String(p.name||'名称不明'));
+   try{p.onmidimessage=midiMessage}catch(e){diag('受信登録エラー: '+describe(e))}
+   // Use only one listener method to prevent duplicate judgments.
+   try{if(typeof p.open==='function')Promise.resolve(p.open()).then(()=>diag('ポート開放成功: '+p.name)).catch(e=>diag('ポート開放エラー: '+describe(e)))}catch(e){diag('ポートエラー: '+describe(e))}
+  });
+  $('device').textContent=inputs.length?'認識した入力機器：'+inputs.map(p=>p.name||'名称不明').join(' / '):'MIDI入力機器が見つかりません';
+  setStatus(inputs.length?'MIDI入力待機中':'MIDI機器が見つかりません',inputs.length>0);
+ }
+ try{m.onstatechange=refresh}catch(e){diag('状態監視エラー: '+describe(e))}
+ refresh();
+}
+async function connect(){
+ $('diag').textContent='診断開始前';diag('接続ボタン実行');
+ diag('Web MIDI API: '+typeof navigator.requestMIDIAccess);
+ if(!navigator.requestMIDIAccess){setStatus('このブラウザーはWeb MIDIに対応していません');return}
+ try{
+  setStatus('MIDIへのアクセスを確認中…');
+  const result=navigator.requestMIDIAccess({sysex:false});
+  diag('戻り値: '+Object.prototype.toString.call(result));
+  const access=await result;
+  diag('MIDIアクセス応答あり');
+  attach(access);
+ }catch(e){setStatus('MIDI接続に失敗しました');diag('エラー: '+describe(e));$('device').textContent='下の接続診断の内容を確認してください';}
+}
+$('octave').addEventListener('change',e=>{octave=Number(e.target.value);clearTimeout(timer);done=false;pos=0;lastEvent=null;render();feedback('音域を変更しました。最初の音を弾いてください')});$('connect').addEventListener('click',connect);$('test').addEventListener('click',()=>{if(!done)noteOn(lessons[lesson].notes[pos]+octave)});$('retry').addEventListener('click',()=>{clearTimeout(timer);done=false;pos=0;render();feedback('最初の音からやり直してください')});$('skip').addEventListener('click',nextLesson);$('reset').addEventListener('click',()=>{clearTimeout(timer);lesson=0;pos=0;correct=0;wrong=0;done=false;render();feedback('記録をリセットしました')});render();connect();
+</script></body></html>
